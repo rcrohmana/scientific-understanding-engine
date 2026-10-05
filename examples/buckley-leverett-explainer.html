@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buckley-Leverett Explainer</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1d1d1b; --muted:#666; --line:#d8d5cc; --water:#1f6fb2; --oil:#b5651d; --tan:#c0392b; --card:#ffffff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#16181b; --fg:#e8e6e1; --muted:#a3a19b; --line:#3a3d42; --water:#5aa9e6; --oil:#e09a4f; --tan:#ff6b5b; --card:#1f2226; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, sans-serif; }
+  main { max-width:1100px; margin:0 auto; padding:16px; }
+  h1 { font-size:1.3rem; margin:.2rem 0; }
+  h2 { font-size:1rem; margin:1rem 0 .4rem; }
+  .q { color:var(--muted); margin:0 0 1rem; }
+  .grid { display:grid; grid-template-columns: 300px 1fr; gap:16px; }
+  @media (max-width: 780px) { .grid { grid-template-columns: 1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px; }
+  label { display:block; margin:.5rem 0 .1rem; font-size:.9rem; }
+  label .tag { font-size:.72rem; color:var(--muted); border:1px solid var(--line); border-radius:4px; padding:0 4px; margin-left:4px; }
+  input[type=range] { width:100%; }
+  .val { float:right; font-variant-numeric: tabular-nums; }
+  canvas { width:100%; height:300px; display:block; }
+  table { border-collapse:collapse; width:100%; font-size:.9rem; }
+  td, th { border-bottom:1px solid var(--line); padding:4px 6px; text-align:left; vertical-align:top; }
+  .why { border-left:3px solid var(--tan); padding-left:10px; }
+  code, .eq { font-family: ui-monospace, Consolas, monospace; font-size:.88rem; }
+  .eq { display:block; margin:.3rem 0; white-space:pre-wrap; }
+  .warn { color:var(--tan); font-size:.85rem; }
+  .legend span { margin-right:12px; font-size:.82rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Buckley-Leverett: kenapa terbentuk shock front?</h1>
+  <p class="q">Pertanyaan: pada waterflood 1D, kenapa saturasi air di depan front melompat dari S<sub>wi</sub> ke S<sub>wf</sub>, dan apa yang mengendalikan nilai S<sub>wf</sub> serta breakthrough time?</p>
+
+  <div class="grid">
+    <section class="card" aria-label="Parameter">
+      <h2>Parameter model</h2>
+      <p class="warn">Semua nilai awal berlabel <b>illustrative</b>: dipilih untuk menunjukkan bentuk kurva, bukan data lapangan.</p>
+      <div id="controls"></div>
+      <h2>Waktu</h2>
+      <label>t<sub>D</sub> (pore volume injected) <span class="tag">kontrol tampilan</span><span class="val" id="tD-val"></span>
+        <input type="range" id="tD" min="0.05" max="1.5" step="0.01" value="0.30"></label>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>1. Fractional flow f<sub>w</sub>(S<sub>w</sub>) dan Welge tangent</h2>
+        <canvas id="cf" width="760" height="300" aria-label="Plot fw terhadap Sw"></canvas>
+        <div class="legend"><span style="color:var(--water)">━ f<sub>w</sub> (model)</span><span style="color:var(--tan)">╌ tangent dari (S<sub>wi</sub>, 0)</span><span style="color:var(--muted)">┈ df<sub>w</sub>/dS<sub>w</sub> (skala relatif)</span></div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h2>2. Profil saturasi S<sub>w</sub>(x<sub>D</sub>) pada t<sub>D</sub> terpilih</h2>
+        <canvas id="cp" width="760" height="260" aria-label="Profil saturasi"></canvas>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h2>Hasil hitungan (calculated dari model di bawah)</h2>
+        <table id="out"></table>
+        <p class="why" id="why"></p>
+      </div>
+    </section>
+  </div>
+
+  <div class="grid" style="margin-top:16px">
+    <section class="card">
+      <h2>Persamaan yang dihitung halaman ini</h2>
+      <span class="eq">S<sub>wn</sub> = (S<sub>w</sub> − S<sub>wi</sub>) / (1 − S<sub>wi</sub> − S<sub>or</sub>)</span>
+      <span class="eq">k<sub>rw</sub> = k<sub>rw</sub>° · S<sub>wn</sub><sup>n<sub>w</sub></sup> ,  k<sub>ro</sub> = k<sub>ro</sub>° · (1 − S<sub>wn</sub>)<sup>n<sub>o</sub></sup>   (Corey)</span>
+      <span class="eq">f<sub>w</sub> = 1 / (1 + (k<sub>ro</sub>/k<sub>rw</sub>)·(μ<sub>w</sub>/μ<sub>o</sub>))</span>
+      <span class="eq">Welge: df<sub>w</sub>/dS<sub>w</sub>|<sub>S<sub>wf</sub></sub> = f<sub>w</sub>(S<sub>wf</sub>) / (S<sub>wf</sub> − S<sub>wi</sub>)</span>
+      <span class="eq">x<sub>D</sub>(S<sub>w</sub>) = t<sub>D</sub> · df<sub>w</sub>/dS<sub>w</sub>  (untuk S<sub>w</sub> ≥ S<sub>wf</sub>)</span>
+      <span class="eq">t<sub>D,bt</sub> = 1 / (df<sub>w</sub>/dS<sub>w</sub>|<sub>S<sub>wf</sub></sub>) ,  S̄<sub>w,bt</sub> = S<sub>wi</sub> + t<sub>D,bt</sub></span>
+      <p>x<sub>D</sub> = x/L, t<sub>D</sub> = q·t/(A·L·φ). Semua besaran tak berdimensi kecuali viskositas (cP; hanya rasionya yang dipakai).</p>
+    </section>
+    <section class="card">
+      <h2>Asumsi dan batas model</h2>
+      <ul>
+        <li><b>Assumed:</b> 1D, homogen, dua fasa immiscible, inkompresibel, laju injeksi konstan.</li>
+        <li><b>Assumed:</b> tekanan kapiler dan gravitasi diabaikan. Karena itu front berbentuk lompatan tajam.</li>
+        <li><b>Assumed:</b> saturasi awal seragam = S<sub>wi</sub> (air awal tidak bergerak), sehingga tangent ditarik dari (S<sub>wi</sub>, 0).</li>
+        <li><b>Assumed:</b> kurva kr mengikuti Corey; bentuk kr nyata bisa berbeda.</li>
+      </ul>
+      <h2>Yang TIDAK direpresentasikan model ini</h2>
+      <ul>
+        <li>Tekanan kapiler: di batuan nyata front tersebar (smeared), tidak tajam.</li>
+        <li>Heterogenitas, layering, viscous fingering, efek 2D/3D: breakthrough nyata bisa lebih awal.</li>
+        <li>Gravitasi dan kemiringan lapisan.</li>
+        <li>Perubahan wettability, kompresibilitas, transfer massa antarfasa.</li>
+      </ul>
+      <p class="warn">Model edukasi. Bukan untuk prediksi engineering.</p>
+    </section>
+  </div>
+</main>
+
+<script>
+/* ===== MODEL (single source of truth; tested headless) ===== */
+function blModel(p) {
+  const { Swi, Sor, nw, no, krw0, kro0, muw, muo } = p;
+  const span = 1 - Swi - Sor;
+  if (!(span > 0.05)) return { error: "1 − Swi − Sor terlalu kecil" };
+  const kr = S => {
+    const s = Math.min(1, Math.max(0, (S - Swi) / span));
+    return { krw: krw0 * Math.pow(s, nw), kro: kro0 * Math.pow(1 - s, no) };
+  };
+  const fw = S => {
+    const { krw, kro } = kr(S);
+    if (krw <= 0) return 0;
+    if (kro <= 0) return 1;
+    return 1 / (1 + (kro / krw) * (muw / muo));
+  };
+  const N = 2000, Smax = 1 - Sor;
+  const S = [], F = [], dF = [];
+  for (let i = 0; i <= N; i++) { const s = Swi + span * i / N; S.push(s); F.push(fw(s)); }
+  for (let i = 0; i <= N; i++) {
+    const a = Math.max(0, i - 1), b = Math.min(N, i + 1);
+    dF.push((F[b] - F[a]) / (S[b] - S[a]));
+  }
+  // Welge tangent from (Swi, 0): maximize chord slope fw(S)/(S - Swi)
+  let iBest = 1, best = -Infinity;
+  for (let i = 1; i <= N; i++) {
+    const m = F[i] / (S[i] - Swi);
+    if (m > best) { best = m; iBest = i; }
+  }
+  const Swf = S[iBest], fwf = F[iBest], slope = best;
+  const tDbt = 1 / slope;
+  const SwAvgBt = Swi + tDbt;           // tangent meets fw = 1
+  const RFbt = (SwAvgBt - Swi) / (1 - Swi);
+  const M = (krw0 / muw) / (kro0 / muo); // end-point mobility ratio
+  // saturation profile at tD: x_D = tD * dfw/dSw for Sw >= Swf; front at tD*slope
+  const profile = tD => {
+    const pts = [[0, S[N]]];             // plateau at injected saturation (non-zero if dfw/dSw > 0 at 1 − Sor)
+    for (let i = N; i >= iBest; i--) pts.push([tD * dF[i], S[i]]);
+    const xf = tD * slope;
+    pts.push([xf, Swf], [xf, Swi], [Math.max(1, xf), Swi]);
+    return { pts, xf };
+  };
+  return { S, F, dF, Swf, fwf, slope, tDbt, SwAvgBt, RFbt, M, Smax, profile };
+}
+/* ===== END MODEL ===== */
+// Indonesian display: decimal comma (model values stay numeric)
+const fx = (v, d) => Number(v).toFixed(d).replace(".", ",");
+
+const params = [
+  { id:"Swi",  sym:"S<sub>wi</sub>",  name:"saturasi air awal (irreducible)", unit:"fraksi", min:0.05, max:0.40, step:0.01, v:0.20, tag:"illustrative" },
+  { id:"Sor",  sym:"S<sub>or</sub>",  name:"saturasi minyak residual", unit:"fraksi", min:0.05, max:0.40, step:0.01, v:0.20, tag:"illustrative" },
+  { id:"nw",   sym:"n<sub>w</sub>",   name:"eksponen Corey air", unit:"–", min:1, max:5, step:0.1, v:2.0, tag:"illustrative" },
+  { id:"no",   sym:"n<sub>o</sub>",   name:"eksponen Corey minyak", unit:"–", min:1, max:5, step:0.1, v:2.0, tag:"illustrative" },
+  { id:"krw0", sym:"k<sub>rw</sub>°", name:"end-point k<sub>rw</sub>", unit:"fraksi", min:0.05, max:1, step:0.01, v:0.30, tag:"illustrative" },
+  { id:"kro0", sym:"k<sub>ro</sub>°", name:"end-point k<sub>ro</sub>", unit:"fraksi", min:0.05, max:1, step:0.01, v:0.80, tag:"illustrative" },
+  { id:"muw",  sym:"μ<sub>w</sub>",   name:"viskositas air", unit:"cP", min:0.2, max:2, step:0.05, v:0.50, tag:"illustrative" },
+  { id:"muo",  sym:"μ<sub>o</sub>",   name:"viskositas minyak", unit:"cP", min:0.2, max:50, step:0.1, v:2.0, tag:"illustrative" },
+];
+const ctr = document.getElementById("controls");
+params.forEach(p => {
+  ctr.insertAdjacentHTML("beforeend",
+    `<label>${p.sym} ${p.name} (${p.unit}) <span class="tag">${p.tag}</span><span class="val" id="${p.id}-val"></span>
+     <input type="range" id="${p.id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.v}"></label>`);
+});
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let prev = null;
+
+function axes(ctx, W, H, pad, xl, yl) {
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = css("--line"); ctx.fillStyle = css("--muted"); ctx.lineWidth = 1; ctx.font = "12px system-ui";
+  ctx.strokeRect(pad.l, pad.t, W - pad.l - pad.r, H - pad.t - pad.b);
+  for (let k = 0; k <= 5; k++) {
+    const x = pad.l + (W - pad.l - pad.r) * k / 5, y = H - pad.b - (H - pad.t - pad.b) * k / 5;
+    ctx.fillText(fx((k / 5), 1), x - 8, H - pad.b + 14);
+    ctx.fillText(fx((k / 5), 1), pad.l - 28, y + 4);
+  }
+  ctx.fillText(xl, (W) / 2 - 30, H - 4);
+  ctx.save(); ctx.translate(12, H / 2 + 20); ctx.rotate(-Math.PI / 2); ctx.fillText(yl, 0, 0); ctx.restore();
+}
+
+function draw() {
+  const p = {};
+  params.forEach(q => { p[q.id] = +document.getElementById(q.id).value; document.getElementById(q.id + "-val").textContent = fx((+p[q.id]), q.step < 0.1 ? 2 : 1); });
+  const tD = +document.getElementById("tD").value;
+  document.getElementById("tD-val").textContent = fx(tD, 2);
+  const r = blModel(p);
+  const out = document.getElementById("out");
+  if (r.error) { out.innerHTML = `<tr><td class="warn">${r.error}</td></tr>`; return; }
+
+  // fw plot
+  const c1 = document.getElementById("cf"), x1 = c1.getContext("2d"), W = c1.width, H = c1.height, pad = { l:52, r:10, t:10, b:30 };
+  const X = s => pad.l + (W - pad.l - pad.r) * s, Y = f => H - pad.b - (H - pad.t - pad.b) * f;
+  axes(x1, W, H, pad, "Sw (fraksi)", "fw (fraksi)");
+  const dmax = Math.max(...r.dF);
+  x1.strokeStyle = css("--muted"); x1.setLineDash([2, 3]); x1.beginPath();
+  r.S.forEach((s, i) => { const y = Y(r.dF[i] / dmax); i ? x1.lineTo(X(s), y) : x1.moveTo(X(s), y); }); x1.stroke();
+  x1.setLineDash([]); x1.strokeStyle = css("--water"); x1.lineWidth = 2.5; x1.beginPath();
+  r.S.forEach((s, i) => { i ? x1.lineTo(X(s), Y(r.F[i])) : x1.moveTo(X(s), Y(r.F[i])); }); x1.stroke();
+  x1.strokeStyle = css("--tan"); x1.lineWidth = 1.5; x1.setLineDash([6, 4]); x1.beginPath();
+  x1.moveTo(X(p.Swi), Y(0)); x1.lineTo(X(r.SwAvgBt), Y(1)); x1.stroke(); x1.setLineDash([]);
+  x1.fillStyle = css("--tan");
+  x1.beginPath(); x1.arc(X(r.Swf), Y(r.fwf), 5, 0, 7); x1.fill();
+  x1.fillText(`Swf = ${fx(r.Swf, 2)}`, X(r.Swf) + 8, Y(r.fwf) + 14);
+  x1.beginPath(); x1.arc(X(r.SwAvgBt), Y(1), 4, 0, 7); x1.fill();
+  x1.fillText(`S̄w,bt = ${fx(r.SwAvgBt, 2)}`, X(r.SwAvgBt) - 120, Y(1) + 6);
+
+  // profile plot
+  const c2 = document.getElementById("cp"), x2 = c2.getContext("2d"), W2 = c2.width, H2 = c2.height;
+  const X2 = x => pad.l + (W2 - pad.l - pad.r) * Math.min(1, x), Y2 = s => H2 - pad.b - (H2 - pad.t - pad.b) * s;
+  axes(x2, W2, H2, pad, "xD = x/L", "Sw (fraksi)");
+  const pr = r.profile(tD);
+  x2.fillStyle = css("--water"); x2.globalAlpha = 0.25; x2.beginPath(); x2.moveTo(X2(0), Y2(0));
+  pr.pts.forEach(([x, s]) => x2.lineTo(X2(x), Y2(s))); x2.lineTo(X2(1), Y2(0)); x2.fill(); x2.globalAlpha = 1;
+  x2.strokeStyle = css("--water"); x2.lineWidth = 2.5; x2.beginPath();
+  pr.pts.forEach(([x, s], i) => i ? x2.lineTo(X2(x), Y2(s)) : x2.moveTo(X2(x), Y2(s))); x2.stroke();
+  x2.fillStyle = css("--fg");
+  x2.fillText(pr.xf < 1 ? `front di xD = ${fx(pr.xf, 2)}` : "sudah breakthrough (front melewati xD = 1)", X2(Math.min(pr.xf, 0.7)) + 6, Y2(r.Swf) - 8);
+
+  // outputs
+  out.innerHTML = `
+    <tr><th>Besaran</th><th>Nilai</th><th>Arti fisis</th></tr>
+    <tr><td>S<sub>wf</sub> (shock front)</td><td>${fx(r.Swf, 2)}</td><td>saturasi tepat di belakang front</td></tr>
+    <tr><td>f<sub>w</sub>(S<sub>wf</sub>)</td><td>${fx(r.fwf, 2)}</td><td>fraksi air yang mengalir di front; = water cut sesaat setelah breakthrough</td></tr>
+    <tr><td>t<sub>D,bt</sub></td><td>${fx(r.tDbt, 2)} PV</td><td>pore volume injected saat breakthrough</td></tr>
+    <tr><td>S̄<sub>w,bt</sub></td><td>${fx(r.SwAvgBt, 2)}</td><td>saturasi air rata-rata di belakang front saat breakthrough</td></tr>
+    <tr><td>RF saat breakthrough</td><td>${fx((100 * r.RFbt), 0)}% OOIP</td><td>(S̄<sub>w,bt</sub> − S<sub>wi</sub>)/(1 − S<sub>wi</sub>)</td></tr>
+    <tr><td>M (end-point)</td><td>${fx(r.M, 2)}</td><td>(k<sub>rw</sub>°/μ<sub>w</sub>)/(k<sub>ro</sub>°/μ<sub>o</sub>)</td></tr>`;
+
+  // explanation of change
+  const noShock = r.Swf - p.Swi < 0.01;
+  let why = noShock
+    ? "Tidak ada shock pada parameter ini: f<sub>w</sub> cekung, sehingga df<sub>w</sub>/dS<sub>w</sub> terus turun dan saturasi tinggi selalu bergerak lebih lambat daripada saturasi rendah. Front menyebar (rarefaction), dan S<sub>wf</sub> = S<sub>wi</sub>."
+    : "Shock terbentuk karena df<sub>w</sub>/dS<sub>w</sub> (garis titik) naik lalu turun: saturasi menengah bergerak lebih cepat daripada saturasi rendah di depannya, sehingga menyusul dan membentuk lompatan. Tangent dari (S<sub>wi</sub>, 0) memberi saturasi lompatan yang memenuhi neraca massa.";
+  const mTxt = prev && Math.abs(r.M - prev.M) > 0.005 ? ` (M ${fx(prev.M, 2)} → ${fx(r.M, 2)})` : "";
+  if (prev) {
+    const d = r.tDbt - prev.tDbt;
+    const dir = d < 0 ? "menurunkan" : "menaikkan";
+    const head = ` Perubahan terakhir ${dir} t<sub>D,bt</sub> (${fx(prev.tDbt, 2)} → ${fx(r.tDbt, 2)} PV)`;
+    if (Math.abs(d) > 0.005 && (lastId === "Swi" || lastId === "Sor")) {
+      // end-point saturations: the movable span changes; fw keeps its normalized shape but is stretched/shifted
+      const s0 = 1 - prev.p.Swi - prev.p.Sor, s1 = 1 - p.Swi - p.Sor;
+      why += `${head}: rentang saturasi yang bisa bergerak, 1 − S<sub>wi</sub> − S<sub>or</sub>, berubah ${fx(s0, 2)} → ${fx(s1, 2)}. Volume pori yang bisa diisi air sebelum front sampai di ujung ${s1 < s0 ? "berkurang" : "bertambah"}, jadi breakthrough terjadi ${d < 0 ? "lebih awal" : "lebih lambat"} dalam satuan PV.`;
+    } else if (Math.abs(d) > 0.005) {
+      why += d < 0
+        ? `${head}: kurva f<sub>w</sub> bergeser ke kiri, pada S<sub>w</sub> yang sama air mengalir lebih dominan${mTxt}, jadi air menembus lebih awal dan menyisakan lebih banyak minyak di belakang front.`
+        : `${head}: kurva f<sub>w</sub> bergeser ke kanan, pendesakan lebih mirip piston${mTxt}, jadi lebih banyak minyak terdesak sebelum breakthrough.`;
+    }
+  }
+  document.getElementById("why").innerHTML = why;
+  prev = { ...r, p };
+}
+let lastId = null;
+document.querySelectorAll("input[type=range]").forEach(el => el.addEventListener("input", e => { lastId = e.target.id; draw(); }));
+draw();
+</script>
+</body>
+</html>
