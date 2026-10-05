@@ -89,3 +89,7 @@ Add a representation (3D visualization, notebook explainer, digital twin, litera
 - Video rendering is not implemented as scripts; the module specifies the pipeline only.
 - Domain examples lean on petroleum engineering; the rules are domain-general, but other fields have no worked example yet.
 - Only the Buckley-Leverett page was executed and verified (headless Node + headless Edge screenshot).
+
+## License
+
+MIT. See [LICENSE](LICENSE).
